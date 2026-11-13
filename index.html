@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="習慣カレンダー">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#d8e0e5">
+<title>習慣カレンダー</title>
+<style>
+:root{
+  --wall:#d8e0e5;
+  --wall-deep:#c5d0d7;
+  --ink:#27323a;
+  --paper:#fdfdfb;
+  --muted:#7b8892;
+  --line:#e4e8ea;
+  --gold:#e0a82e;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  min-height:100vh;
+  color:var(--ink);
+  background:linear-gradient(180deg,var(--wall) 0%,var(--wall-deep) 100%) fixed;
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.page{max-width:1000px;margin:0 auto;padding:16px 16px 56px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 2px 0}
+.top h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.04em}
+.btn-plain{
+  appearance:none;border:1px solid rgba(39,50,58,.25);background:rgba(255,255,255,.55);
+  color:var(--ink);font:inherit;font-size:14px;padding:8px 14px;border-radius:999px;cursor:pointer;
+}
+.btn-plain:active{background:rgba(255,255,255,.9)}
+.notice{
+  margin:12px 0 0;padding:10px 12px;border-radius:8px;background:#fff3cd;color:#6b4e00;font-size:13px;line-height:1.5;
+}
+.cals{
+  display:grid;gap:30px 22px;
+  grid-template-columns:repeat(auto-fill,minmax(290px,1fr));
+  margin-top:22px;
+}
+
+/* ---- 壁掛けカレンダー ---- */
+.cal{
+  --accent:#b83a3a;
+  position:relative;background:var(--paper);border-radius:4px;cursor:pointer;
+  box-shadow:0 14px 20px -12px rgba(30,45,60,.55),0 3px 4px rgba(30,45,60,.18);
+  outline:none;
+}
+.cal:focus-visible{box-shadow:0 0 0 3px var(--accent),0 14px 20px -12px rgba(30,45,60,.55)}
+.rings{position:absolute;left:0;right:0;top:-9px;display:flex;justify-content:space-evenly;pointer-events:none;z-index:2}
+.rings span{
+  width:9px;height:20px;border-radius:5px;background:linear-gradient(90deg,#8d99a1,#e9eef1 45%,#7f8b93);
+  box-shadow:0 1px 2px rgba(0,0,0,.35);
+}
+.cal-head{background:var(--accent);color:#fff;padding:22px 16px 12px;border-radius:4px 4px 0 0;min-height:70px;display:flex;align-items:flex-end}
+.cal-title{margin:0;font-size:19px;font-weight:700;line-height:1.3;word-break:break-all}
+.cal-title.unset{font-weight:400;opacity:.75}
+.cal-body{padding:10px 12px 6px}
+.month-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.month-label{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;font-size:26px;line-height:1;letter-spacing:.02em}
+.month-label small{font-size:13px;margin-left:6px;color:var(--muted)}
+.nav{
+  appearance:none;border:0;background:transparent;color:var(--ink);font-size:22px;line-height:1;
+  width:40px;height:40px;border-radius:50%;cursor:pointer;
+}
+.nav:active{background:var(--line)}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.dow{font-size:11px;text-align:center;color:var(--muted);padding:2px 0}
+.dow.sun{color:#c0504d}
+.dow.sat{color:#3e6fa8}
+.cell{
+  aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;
+  font-size:13px;border-radius:5px;position:relative;font-variant-numeric:tabular-nums;
+}
+.cell.blank{visibility:hidden}
+.cell.today{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.cell.on{background:var(--accent);color:#fff;font-weight:700}
+.cell.on.today{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.9),0 0 0 1.5px var(--ink)}
+.cell.pop{animation:pop .7s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{0%{transform:scale(.3);filter:brightness(1.8)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
+.cal-foot{padding:6px 14px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;min-height:46px}
+.streak{font-size:14px;color:var(--ink)}
+.streak b{font-size:22px;margin:0 2px;color:var(--accent);font-variant-numeric:tabular-nums}
+.streak.zero{color:var(--muted);font-size:13px}
+.total{font-size:12px;color:var(--muted)}
+.badge{
+  background:var(--gold);color:#4a3200;font-weight:700;font-size:12px;padding:4px 10px;border-radius:999px;
+}
+
+/* ---- シート(下から出るメニュー) ---- */
+.scrim{position:fixed;inset:0;background:rgba(20,30,38,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.scrim[hidden]{display:none}
+.sheet{
+  width:100%;max-width:520px;background:var(--paper);border-radius:18px 18px 0 0;
+  padding:20px 18px calc(18px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto;
+  animation:rise .25s ease-out;
+}
+@keyframes rise{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.sheet h2{margin:0 0 4px;font-size:18px}
+.sheet p.sub{margin:0 0 14px;color:var(--muted);font-size:14px}
+.day-btn{
+  display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;
+  appearance:none;border:1.5px solid var(--accent,#27323a);background:#fff;color:var(--ink);
+  font:inherit;font-size:17px;padding:15px 16px;border-radius:12px;margin-top:10px;cursor:pointer;text-align:left;
+}
+.day-btn small{font-size:13px;color:var(--muted)}
+.day-btn.done{background:var(--accent);color:#fff;border-color:var(--accent)}
+.day-btn.done small{color:rgba(255,255,255,.85)}
+.close{
+  display:block;width:100%;margin-top:14px;appearance:none;border:0;background:transparent;color:var(--muted);
+  font:inherit;font-size:15px;padding:12px;cursor:pointer;
+}
+.field{display:flex;align-items:center;gap:10px;margin-top:10px}
+.field i{width:12px;height:12px;border-radius:50%;flex:none}
+.field input{
+  flex:1;min-width:0;font:inherit;font-size:16px;padding:11px 12px;border:1px solid #c9d1d6;border-radius:10px;background:#fff;color:var(--ink);
+}
+.field input:focus{outline:2px solid #4a56a6;outline-offset:1px}
+.row{display:flex;gap:10px;margin-top:16px}
+.row .btn-main,.row .btn-sub{flex:1}
+.btn-main{appearance:none;border:0;background:var(--ink);color:#fff;font:inherit;font-size:16px;padding:13px;border-radius:12px;cursor:pointer}
+.btn-sub{appearance:none;border:1px solid #b8c2c8;background:#fff;color:var(--ink);font:inherit;font-size:15px;padding:12px;border-radius:12px;cursor:pointer;text-align:center}
+.hr{height:1px;background:var(--line);margin:20px 0 6px}
+.hint{font-size:12.5px;color:var(--muted);line-height:1.6;margin:8px 0 0}
+
+/* ---- 花火・メッセージ ---- */
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
+.toast{
+  position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 18px);transform:translate(-50%,-20px);
+  background:var(--ink);color:#fff;padding:12px 22px;border-radius:999px;font-size:17px;font-weight:700;
+  z-index:40;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.big{
+  position:fixed;left:0;right:0;top:36%;text-align:center;z-index:40;pointer-events:none;
+  font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;font-weight:900;
+  font-size:clamp(38px,12vw,76px);color:#ffe08a;letter-spacing:.04em;
+  text-shadow:0 2px 0 #9a6b00,0 0 24px rgba(255,200,60,.9),0 4px 18px rgba(0,0,0,.45);
+  opacity:0;transform:scale(.6);transition:opacity .4s,transform .5s cubic-bezier(.2,1.4,.4,1);
+}
+.big.show{opacity:1;transform:scale(1)}
+
+@media (prefers-reduced-motion:reduce){
+  .cell.pop,.sheet{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top">
+    <h1>習慣カレンダー</h1>
+    <button class="btn-plain" id="openSettings" type="button">設定</button>
+  </div>
+  <div id="notice" class="notice" hidden>この環境ではデータを保存できません。Safariの「プライベートブラウズ」をオフにしてください。</div>
+  <main class="cals" id="cals"></main>
+</div>
+
+<!-- 日付を選ぶシート -->
+<div class="scrim" id="daySheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dayTitle">
+    <h2 id="dayTitle"></h2>
+    <p class="sub">記録する日をえらんでください</p>
+    <div id="dayBtns"></div>
+    <button class="close" type="button" data-close>閉じる</button>
+  </div>
+</div>
+
+<!-- 設定シート -->
+<div class="scrim" id="setSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <h2 id="setTitle">タイトルの設定</h2>
+    <p class="sub">6つの習慣の名前を自由に変えられます</p>
+    <div id="fields"></div>
+    <div class="row">
+      <button class="btn-sub" type="button" data-close>キャンセル</button>
+      <button class="btn-main" type="button" id="saveTitles">保存</button>
+    </div>
+    <div class="hr"></div>
+    <h2 style="font-size:16px;margin-top:14px">バックアップ</h2>
+    <div class="row" style="margin-top:10px">
+      <button class="btn-sub" type="button" id="exportBtn">ファイルに保存</button>
+      <button class="btn-sub" type="button" id="importBtn">ファイルから復元</button>
+    </div>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+    <p class="hint">記録はこの端末のブラウザ内に保存されます。長く使うために、ときどきバックアップを保存してください。「ホーム画面に追加」して使うと、データが消えにくくなります。</p>
+  </div>
+</div>
+
+<canvas id="fx"></canvas>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="big" id="big" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ================= 設定 ================= */
+var KEY = 'habit-calendar-v1';
+var COLORS = ['#b83a3a','#1f7a78','#4a56a6','#b7791f','#3f7d4a','#8a4a86'];
+var DEFAULT_TITLES = ['人に話しかける','あいさつする','','','',''];
+var DOW = ['日','月','火','水','木','金','土'];
+var MILESTONE = 100; // 累計でこの日数ごとに「〇日達成！」を表示
+
+/* ================= データ ================= */
+var storageOk = true;
+var state = load();
+
+function blank(){
+  return { habits: DEFAULT_TITLES.map(function(t){ return { title:t, dates:{} }; }) };
+}
+function valid(s){
+  return s && Array.isArray(s.habits) && s.habits.length === 6 && s.habits.every(function(h){
+    return h && typeof h.title === 'string' && h.dates && typeof h.dates === 'object';
+  });
+}
+function load(){
+  try{
+    localStorage.setItem(KEY + '-test','1');
+    localStorage.removeItem(KEY + '-test');
+    var raw = localStorage.getItem(KEY);
+    if(raw){
+      var s = JSON.parse(raw);
+      if(valid(s)) return s;
+    }
+  }catch(e){ storageOk = false; }
+  return blank();
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch(e){ storageOk = false; showNotice(); }
+}
+function showNotice(){ document.getElementById('notice').hidden = storageOk; }
+
+// iOSに「消さないで」とお願いする(対応していない場合は何もしない)
+if(navigator.storage && navigator.storage.persist){
+  try{ navigator.storage.persist(); }catch(e){}
+}
+
+/* ================= 日付 ================= */
+function pad(n){ return n < 10 ? '0' + n : '' + n; }
+function keyOf(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function today(){ var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+function addDays(d, n){ return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+function parseKey(k){ var p = k.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
+
+function streakOf(h){
+  var d = today();
+  if(!h.dates[keyOf(d)]){
+    d = addDays(d, -1);
+    if(!h.dates[keyOf(d)]) return 0;
+  }
+  var n = 0;
+  while(h.dates[keyOf(d)]){ n++; d = addDays(d, -1); }
+  return n;
+}
+function totalOf(h){ return Object.keys(h.dates).length; }
+
+/* ================= 画面 ================= */
+var views = state.habits.map(function(){ var t = today(); return { y:t.getFullYear(), m:t.getMonth() }; });
+var popKey = null;
+
+function el(tag, cls, text){
+  var e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(text != null) e.textContent = text;
+  return e;
+}
+
+function render(){
+  var root = document.getElementById('cals');
+  root.innerHTML = '';
+  var todayKey = keyOf(today());
+
+  state.habits.forEach(function(h, i){
+    var v = views[i];
+    var card = el('article', 'cal');
+    card.style.setProperty('--accent', COLORS[i]);
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', (h.title || '未設定') + 'のカレンダー。タップして記録');
+
+    var rings = el('div', 'rings');
+    for(var r = 0; r < 7; r++) rings.appendChild(el('span'));
+    card.appendChild(rings);
+
+    var head = el('div', 'cal-head');
+    var title = el('h2', 'cal-title' + (h.title ? '' : ' unset'), h.title || 'タイトルを設定する');
+    head.appendChild(title);
+    card.appendChild(head);
+
+    var body = el('div', 'cal-body');
+    var mrow = el('div', 'month-row');
+    var prev = el('button', 'nav', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', '前の月');
+    var next = el('button', 'nav', '›'); next.type = 'button'; next.setAttribute('aria-label', '次の月');
+    var label = el('div', 'month-label', (v.m + 1) + '月');
+    label.appendChild(el('small', null, v.y + '年'));
+    prev.addEventListener('click', function(ev){ ev.stopPropagation(); shiftMonth(i, -1); });
+    next.addEventListener('click', function(ev){ ev.stopPropagation(); shiftMonth(i, 1); });
+    mrow.appendChild(prev); mrow.appendChild(label); mrow.appendChild(next);
+    body.appendChild(mrow);
+
+    var grid = el('div', 'grid');
+    DOW.forEach(function(w, idx){
+      grid.appendChild(el('div', 'dow' + (idx === 0 ? ' sun' : idx === 6 ? ' sat' : ''), w));
+    });
+    var first = new Date(v.y, v.m, 1).getDay();
+    var days = new Date(v.y, v.m + 1, 0).getDate();
+    for(var b = 0; b < first; b++) grid.appendChild(el('div', 'cell blank'));
+    for(var d = 1; d <= days; d++){
+      var k = v.y + '-' + pad(v.m + 1) + '-' + pad(d);
+      var cls = 'cell';
+      if(h.dates[k]) cls += ' on';
+      if(k === todayKey) cls += ' today';
+      if(popKey === i + ':' + k) cls += ' pop';
+      grid.appendChild(el('div', cls, String(d)));
+    }
+    body.appendChild(grid);
+    card.appendChild(body);
+
+    var foot = el('div', 'cal-foot');
+    var n = streakOf(h);
+    var total = totalOf(h);
+    var left = el('div');
+    if(n > 0){
+      var s = el('div', 'streak');
+      s.appendChild(document.createTextNode('連続'));
+      s.appendChild(el('b', null, String(n)));
+      s.appendChild(document.createTextNode('日達成'));
+      left.appendChild(s);
+      left.appendChild(el('div', 'total', '累計 ' + total + '日'));
+    }else{
+      left.appendChild(el('div', 'streak zero', total > 0 ? '累計 ' + total + '日 ・ 今日を記録しよう' : 'タップして今日を記録しよう'));
+    }
+    foot.appendChild(left);
+    if(total >= MILESTONE){
+      foot.appendChild(el('div', 'badge', (Math.floor(total / MILESTONE) * MILESTONE) + '日達成！'));
+    }
+    card.appendChild(foot);
+
+    function open(){
+      if(!h.title) openSettings(i); else openDaySheet(i);
+    }
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', function(ev){
+      if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); open(); }
+    });
+
+    root.appendChild(card);
+  });
+  popKey = null;
+  showNotice();
+}
+
+function shiftMonth(i, delta){
+  var v = views[i];
+  var d = new Date(v.y, v.m + delta, 1);
+  views[i] = { y:d.getFullYear(), m:d.getMonth() };
+  render();
+}
+
+/* ================= 日付選択シート ================= */
+var daySheet = document.getElementById('daySheet');
+var dayBtns = document.getElementById('dayBtns');
+
+function fmt(d){ return (d.getMonth()+1) + '/' + d.getDate() + '（' + DOW[d.getDay()] + '）'; }
+
+function openDaySheet(i){
+  var h = state.habits[i];
+  document.getElementById('dayTitle').textContent = h.title;
+  dayBtns.innerHTML = '';
+  var t = today();
+  [['今日', t], ['昨日', addDays(t, -1)]].forEach(function(pair){
+    var date = pair[1], k = keyOf(date), done = !!h.dates[k];
+    var b = el('button', 'day-btn' + (done ? ' done' : ''));
+    b.type = 'button';
+    b.style.setProperty('--accent', COLORS[i]);
+    b.appendChild(document.createTextNode(pair[0] + '　' + fmt(date)));
+    b.appendChild(el('small', null, done ? '記録済み（タップで取り消し）' : '記録する'));
+    b.addEventListener('click', function(){ toggle(i, date); });
+    dayBtns.appendChild(b);
+  });
+  daySheet.hidden = false;
+}
+
+function toggle(i, date){
+  var h = state.habits[i], k = keyOf(date);
+  closeSheets();
+  if(h.dates[k]){
+    delete h.dates[k];
+    save();
+    render();
+    toast('記録を取り消しました');
+    return;
+  }
+  h.dates[k] = 1;
+  save();
+  views[i] = { y:date.getFullYear(), m:date.getMonth() };
+  popKey = i + ':' + k;
+  render();
+
+  var total = totalOf(h), n = streakOf(h);
+  if(total % MILESTONE === 0){
+    bigMessage(total + '日達成！');
+    fireworks(9);
+  }else{
+    toast('連続' + n + '日達成！');
+    fireworks(4);
+  }
+}
+
+/* ================= 設定シート ================= */
+var setSheet = document.getElementById('setSheet');
+var fieldsBox = document.getElementById('fields');
+
+function openSettings(focusIndex){
+  fieldsBox.innerHTML = '';
+  state.habits.forEach(function(h, i){
+    var f = el('label', 'field');
+    var dot = el('i'); dot.style.background = COLORS[i];
+    var input = document.createElement('input');
+    input.type = 'text'; input.maxLength = 20; input.value = h.title;
+    input.placeholder = '習慣' + (i + 1) + 'のタイトル';
+    input.setAttribute('data-i', i);
+    f.appendChild(dot); f.appendChild(input);
+    fieldsBox.appendChild(f);
+  });
+  setSheet.hidden = false;
+  if(typeof focusIndex === 'number'){
+    var inp = fieldsBox.querySelector('input[data-i="' + focusIndex + '"]');
+    if(inp) setTimeout(function(){ inp.focus(); }, 50);
+  }
+}
+document.getElementById('openSettings').addEventListener('click', function(){ openSettings(); });
+document.getElementById('saveTitles').addEventListener('click', function(){
+  fieldsBox.querySelectorAll('input').forEach(function(inp){
+    state.habits[+inp.getAttribute('data-i')].title = inp.value.trim();
+  });
+  save();
+  closeSheets();
+  render();
+});
+
+/* ---- バックアップ ---- */
+document.getElementById('exportBtn').addEventListener('click', function(){
+  var t = today();
+  var name = 'habit-backup-' + t.getFullYear() + pad(t.getMonth()+1) + pad(t.getDate()) + '.json';
+  var blob = new Blob([JSON.stringify(state)], { type:'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+});
+var importFile = document.getElementById('importFile');
+document.getElementById('importBtn').addEventListener('click', function(){ importFile.click(); });
+importFile.addEventListener('change', function(){
+  var f = importFile.files && importFile.files[0];
+  if(!f) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    try{
+      var s = JSON.parse(reader.result);
+      if(!valid(s)) throw new Error('bad');
+      if(!window.confirm('いまの記録をバックアップの内容で置き換えます。よろしいですか？')) return;
+      state = s;
+      save();
+      closeSheets();
+      render();
+      toast('復元しました');
+    }catch(e){
+      window.alert('このファイルは読み込めませんでした。');
+    }
+    importFile.value = '';
+  };
+  reader.readAsText(f);
+});
+
+/* ---- シートの開閉 ---- */
+function closeSheets(){ daySheet.hidden = true; setSheet.hidden = true; }
+[daySheet, setSheet].forEach(function(sc){
+  sc.addEventListener('click', function(ev){
+    if(ev.target === sc || ev.target.hasAttribute('data-close')) closeSheets();
+  });
+});
+document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape') closeSheets(); });
+
+/* ================= メッセージ ================= */
+var toastEl = document.getElementById('toast'), toastTimer = null;
+function toast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2600);
+}
+var bigEl = document.getElementById('big'), bigTimer = null;
+function bigMessage(msg){
+  bigEl.textContent = msg;
+  bigEl.classList.add('show');
+  clearTimeout(bigTimer);
+  bigTimer = setTimeout(function(){ bigEl.classList.remove('show'); }, 3600);
+}
+
+/* ================= 花火 ================= */
+var fx = document.getElementById('fx'), ctx = fx.getContext('2d');
+var W = 0, H = 0, particles = [], rockets = [], raf = null;
+var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function resize(){
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  fx.width = W * dpr; fx.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+function burst(x, y, hue, count){
+  for(var i = 0; i < count; i++){
+    var a = Math.random() * Math.PI * 2;
+    var sp = Math.random() * 4.6 + 1.2;
+    particles.push({
+      x:x, y:y, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp,
+      life:1, decay:0.009 + Math.random() * 0.011,
+      hue:hue + (Math.random() * 40 - 20), size:1.6 + Math.random() * 1.6
+    });
+  }
+}
+function launchOne(){
+  rockets.push({
+    x:W * (0.12 + Math.random() * 0.76), y:H + 10,
+    ty:H * (0.14 + Math.random() * 0.34),
+    vy:-(9 + Math.random() * 3), hue:Math.random() * 360
+  });
+  start();
+}
+function fireworks(n){
+  if(reduce) n = Math.min(n, 2);
+  for(var i = 0; i < n; i++) setTimeout(launchOne, i * 260);
+}
+function start(){ if(!raf) raf = requestAnimationFrame(frame); }
+function frame(){
+  ctx.clearRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'lighter';
+
+  for(var r = rockets.length - 1; r >= 0; r--){
+    var k = rockets[r];
+    k.y += k.vy;
+    k.vy *= 0.985;
+    ctx.fillStyle = 'hsla(' + k.hue + ',100%,85%,.95)';
+    ctx.fillRect(k.x - 1, k.y, 2, 12);
+    if(k.y <= k.ty || k.vy > -2.5){
+      burst(k.x, k.y, k.hue, reduce ? 24 : 80);
+      rockets.splice(r, 1);
+    }
+  }
+  for(var p = particles.length - 1; p >= 0; p--){
+    var q = particles[p];
+    q.vx *= 0.986; q.vy = q.vy * 0.986 + 0.055;
+    q.x += q.vx; q.y += q.vy;
+    q.life -= q.decay;
+    if(q.life <= 0){ particles.splice(p, 1); continue; }
+    ctx.fillStyle = 'hsla(' + q.hue + ',100%,62%,' + q.life + ')';
+    ctx.beginPath();
+    ctx.arc(q.x, q.y, q.size * q.life + 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  if(particles.length || rockets.length){
+    raf = requestAnimationFrame(frame);
+  }else{
+    raf = null;
+    ctx.clearRect(0, 0, W, H);
+  }
+}
+
+/* ================= 起動 ================= */
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden) render(); // 日付をまたいだときに「今日」を更新
+});
+render();
+})();
+</script>
+</body>
+</html>
